@@ -12,7 +12,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.pipeline import Pipeline
-from ..utils import pickle_object
+from .utils import pickle_object
 
 
 @task(name="Build pipeline")

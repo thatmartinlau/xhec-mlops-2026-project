@@ -119,7 +119,7 @@ curl -X POST http://localhost:8000/predict \
        "viscera_weight": 0.101, "shell_weight": 0.15}'
 ```
 
-Response (`201`):
+Response (`200`):
 
 ```json
 {"predicted_age": 10.67}
@@ -152,10 +152,16 @@ Use port `8001` instead of `8000` when the API runs locally.
 
 ### Managing Dependencies
 
-Dependencies are managed with uv (`pyproject.toml` and `uv.lock`). Add a package with:
+Dependencies are managed with uv: they are declared in `pyproject.toml` and pinned in `uv.lock`. They are split in two:
+
+- **Runtime dependencies** (`dependencies`): what the training flow and the API need (pandas, scikit-learn, Prefect, FastAPI...). Only these are installed in the Docker image (`uv sync --no-dev`).
+- **Development dependencies** (`dev` group): notebooks (Jupyter kernel, matplotlib, seaborn, MLflow) and code quality tools (pre-commit, ruff). `uv sync` installs them by default for local work and the CI.
+
+Add a package with:
 
 ```bash
-uv add <package>
+uv add <package>         # runtime dependency
+uv add --dev <package>   # development dependency
 ```
 
 ### MLflow Tracking

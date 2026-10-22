@@ -11,9 +11,10 @@ COPY --from=ghcr.io/astral-sh/uv:0.12.15 /uv /bin/uv
 
 WORKDIR /app
 
-# Install the dependencies first, so this layer is cached when only the code changes
+# Install the runtime dependencies only (no dev group: notebooks, MLflow, linters),
+# first, so this layer is cached when only the code changes
 COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-cache
+RUN uv sync --frozen --no-cache --no-dev
 
 COPY src/ src/
 COPY bin/ bin/
