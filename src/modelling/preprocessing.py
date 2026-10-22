@@ -8,6 +8,7 @@ model and applied identically at prediction time.
 from pathlib import Path
 
 import pandas as pd
+from prefect import task
 from sklearn.compose import ColumnTransformer
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
@@ -21,11 +22,13 @@ TEST_SIZE = 0.2
 RANDOM_STATE = 42
 
 
+@task(name="Load data")
 def load_data(path: str | Path) -> pd.DataFrame:
     """Load the abalone dataset from a CSV file."""
     return pd.read_csv(path)
 
 
+@task(name="Remove invalid rows")
 def remove_invalid_rows(df: pd.DataFrame) -> pd.DataFrame:
     """Remove rows with physically impossible values.
 
@@ -41,6 +44,7 @@ def remove_invalid_rows(df: pd.DataFrame) -> pd.DataFrame:
     return df[~invalid_mask].reset_index(drop=True)
 
 
+@task(name="Construct target variable")
 def construct_target_variable(df: pd.DataFrame) -> pd.DataFrame:
     """Add the ``Age`` target column, computed from the number of rings."""
     df = df.copy()
@@ -48,6 +52,7 @@ def construct_target_variable(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+@task(name="Extract X and y")
 def extract_X_y(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
     """Split the data into features (X) and target (y).
 
@@ -58,6 +63,7 @@ def extract_X_y(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
     return X, y
 
 
+@task(name="Split train and test")
 def split_train_test(
     X: pd.DataFrame,
     y: pd.Series,
@@ -68,6 +74,7 @@ def split_train_test(
     return train_test_split(X, y, test_size=test_size, random_state=random_state)
 
 
+@task(name="Fit preprocessor")
 def fit_preprocessor(X_train: pd.DataFrame) -> ColumnTransformer:
     """Fit the preprocessor on the training set.
 
@@ -93,6 +100,7 @@ def fit_preprocessor(X_train: pd.DataFrame) -> ColumnTransformer:
     return preprocessor
 
 
+@task(name="Transform features")
 def transform_features(
     X: pd.DataFrame, preprocessor: ColumnTransformer
 ) -> pd.DataFrame:

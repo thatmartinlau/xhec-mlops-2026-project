@@ -3,6 +3,8 @@
 import argparse
 from pathlib import Path
 
+from prefect import flow
+
 from .predicting import DEFAULT_MODEL_PATH
 from .preprocessing import (
     construct_target_variable,
@@ -16,7 +18,8 @@ from .training import build_pipeline, evaluate, train_model
 from .utils import pickle_object
 
 
-def main(
+@flow(name="Train model", log_prints=True)
+def train_model_workflow(
     trainset_path: str | Path,
     model_path: str | Path = DEFAULT_MODEL_PATH,
 ) -> dict[str, float]:
@@ -54,4 +57,4 @@ if __name__ == "__main__":
         help=f"Where to save the pickled model (default: {DEFAULT_MODEL_PATH})",
     )
     args = parser.parse_args()
-    main(args.trainset_path, model_path=args.model_path)
+    train_model_workflow(args.trainset_path, model_path=args.model_path)
