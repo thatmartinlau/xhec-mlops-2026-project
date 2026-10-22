@@ -6,12 +6,14 @@ single artifact that can be pickled, loaded and called directly on raw data.
 
 import numpy as np
 import pandas as pd
+from prefect import task
 from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
 from sklearn.pipeline import Pipeline
 
 
+@task(name="Build pipeline")
 def build_pipeline(preprocessor: ColumnTransformer) -> Pipeline:
     """Wrap the (fitted) preprocessor and a linear regression into one pipeline."""
     return Pipeline(
@@ -22,6 +24,7 @@ def build_pipeline(preprocessor: ColumnTransformer) -> Pipeline:
     )
 
 
+@task(name="Train model")
 def train_model(
     pipeline: Pipeline,
     X_train: pd.DataFrame,
@@ -32,6 +35,7 @@ def train_model(
     return pipeline
 
 
+@task(name="Evaluate model")
 def evaluate(
     model: Pipeline,
     X: pd.DataFrame,

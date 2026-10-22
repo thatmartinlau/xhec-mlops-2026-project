@@ -18,8 +18,9 @@ Group members:
 - Scott Mayette (scott.mayette@hec.edu)
 
 This project includes:
-- Notebook exploration
-- (Add more features as they get added progressively)
+- Notebook exploration (EDA and a first model tracked with MLflow)
+- A training pipeline orchestrated with Prefect (`src/modelling`)
+- A Prefect deployment that retrains the model every week
 
 
 ## 🚀 Quick Start
@@ -30,12 +31,47 @@ This project includes:
    ```bash
    # Create and activate a virtual environment
    uv sync
-   source venv/bin/activate # on Windows: venv\Scripts\activate
+   source .venv/bin/activate # on Windows (Git Bash): source .venv/Scripts/activate
 
    # Install pre-commit hooks for code quality
     uv pip install pre-commit
     uv run pre-commit install
    ```
+
+2. **Download the data**: get `abalone.csv` from the [Kaggle page](https://www.kaggle.com/datasets/rodolfomendes/abalone-dataset) and save it as `data/abalone.csv` (the `data/` folder is git-ignored).
+
+### Training pipeline with Prefect
+
+The training code in `src/modelling` is a Prefect **flow** (`Train model`, in `main.py`) made of **tasks**, one per step: load data, remove invalid rows, construct the target, extract X and y, split train/test, fit the preprocessor, build the pipeline, train, evaluate and save the model. The trained pipeline is saved to `src/web_service/local_objects/model.pkl`.
+
+All commands below are run from the project root.
+
+1. **Point Prefect to a local server** (only needed once):
+   ```bash
+   uv run prefect config set PREFECT_API_URL=http://127.0.0.1:4200/api
+   ```
+
+2. **Start the Prefect server and UI** in a first terminal (it keeps running):
+   ```bash
+   uv run prefect server start
+   ```
+   Open the UI at http://127.0.0.1:4200. To reset the database: `uv run prefect server database reset`.
+
+3. **Run the training flow once** in a second terminal:
+   ```bash
+   uv run python -m src.modelling.main data/abalone.csv
+   ```
+   The run appears in the UI under **Runs**: click on it to see each task, its logs and the test metrics (RMSE, MAE, R²).
+
+4. **Deploy the weekly retraining** in the second terminal (it keeps running to serve the scheduled runs):
+   ```bash
+   uv run python -m src.modelling.deployment
+   ```
+   The `weekly-retraining` deployment appears in the UI under **Deployments**, scheduled every Monday at 00:00 (cron `0 0 * * 1`, set in `src/modelling/deployment.py`). To trigger a run now, click **Run** in the UI or use, from a third terminal:
+   ```bash
+   uv run prefect deployment run "Train model/weekly-retraining"
+   ```
+   Stopping the command (`Ctrl+C`) stops the scheduled runs; the deployment stays visible in the UI.
 
 ## 📋 What You'll Build
 

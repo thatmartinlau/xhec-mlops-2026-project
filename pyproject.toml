@@ -25,6 +25,8 @@ dependencies = [
   "ipykernel>=7.3.0",
   "mlflow>=3.17.2",
   "scikit-learn>=1.7.2",
+  "prefect>=3.8.8",
+  "sqlalchemy>=2.0,<2.1",
 ]
 
 [tool.uv]
