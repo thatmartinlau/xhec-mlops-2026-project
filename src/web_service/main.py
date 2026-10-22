@@ -21,7 +21,7 @@ def home() -> dict:
     return {"health_check": "App up and running!"}
 
 
-@app.post("/predict", response_model=PredictionResponse, status_code=201)
+@app.post("/predict", response_model=PredictionResponse, status_code=200)
 def predict(payload: AbaloneFeatures) -> PredictionResponse:
     """Predict the age (in years) of a single abalone."""
     return PredictionResponse(predicted_age=predict_abalone(payload))

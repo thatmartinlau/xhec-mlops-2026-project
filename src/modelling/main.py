@@ -14,8 +14,7 @@ from .preprocessing import (
     remove_invalid_rows,
     split_train_test,
 )
-from .training import build_pipeline, evaluate, train_model
-from .utils import pickle_object
+from .training import build_pipeline, evaluate, train_model, save_model
 
 
 @flow(name="Training pipeline", log_prints=True)
@@ -38,7 +37,7 @@ def train_model_workflow(
     pipeline = train_model(pipeline, X_train, y_train)
 
     metrics = evaluate(pipeline, X_test, y_test)
-    pickle_object(pipeline, model_path)
+    save_model(pipeline, model_path)
 
     print(f"Model saved to {model_path}")
     print(f"Test metrics: {metrics}")
