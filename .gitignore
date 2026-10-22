@@ -85,3 +85,18 @@ secrets/*
 
 # Mac files
 .DS_Store
+
+# Data and MLflow tracking (local only, not pushed)
+data/
+mlruns/
+mlflow.db
+
+# Data and MLflow tracking (local only, not pushed)
+data/
+mlruns/
+mlflow.db
+
+# Data files
+*.csv
+data/
+*.pkl

@@ -9,52 +9,75 @@
 
 ## 🎯 Project Overview
 
-Welcome to your MLOps project! In this hands-on project, you'll build a complete machine learning system to predict the age of abalone (a type of sea snail) using physical measurements instead of the traditional time-consuming method of counting shell rings under a microscope.
+This **group 7**'s submission for the X-HEC MLOps course with Artefact.
 
-**Your Mission**: Transform a simple ML model into a production-ready system with automated training, deployment, and prediction capabilities.
+Group members:
+- Martin Lau (martin.lau@hec.edu)
+- Yuqi Xin (yuqi.xin@hec.edu)
+- Julian Fix (julian.fix@hec.edu)
+- Scott Mayette (scott.mayette@hec.edu)
 
-## 📊 About the Dataset
-
-Traditionally, determining an abalone's age requires:
-1. Cutting the shell through the cone
-2. Staining it 
-3. Counting rings under a microscope (very time-consuming!)
-
-**Your Goal**: Use easier-to-obtain physical measurements (shell weight, diameter, etc.) to predict the age automatically.
-
-📥 **Download**: Get the dataset from the [Kaggle page](https://www.kaggle.com/datasets/rodolfomendes/abalone-dataset)
+This project includes:
+- Notebook exploration (EDA and a first model tracked with MLflow)
+- A training pipeline orchestrated with Prefect (`src/modelling`)
+- A Prefect deployment that retrains the model every week
 
 
 ## 🚀 Quick Start
 
-### Prerequisites
-- GitHub account
-- [Kaggle account](https://www.kaggle.com/account/login?phase=startRegisterTab&returnUrl=%2F) (for dataset download)
-- Python 3.10 or 3.11
-
 ### Setup Steps
 
-1. **Fork this repository** 
-   - ⚠️ **Important**: Uncheck "Copy the `main` branch only" to get all project branches
-   
-2. **Add your team members** as admins to your forked repository
-
-3. **Set up your development environment**:
+1. **Set up your development environment**:
    ```bash
    # Create and activate a virtual environment
-   uv sync 
-   source venv/bin/activate # on Windows: venv\Scripts\activate
+   uv sync
+   source .venv/bin/activate # on Windows (Git Bash): source .venv/Scripts/activate
 
    # Install pre-commit hooks for code quality
     uv pip install pre-commit
     uv run pre-commit install
    ```
 
+2. **Download the data**: get `abalone.csv` from the [Kaggle page](https://www.kaggle.com/datasets/rodolfomendes/abalone-dataset) and save it as `data/abalone.csv` (the `data/` folder is git-ignored).
+
+### Training pipeline with Prefect
+
+The training code in `src/modelling` is a Prefect **flow** (`Train model`, in `main.py`) made of **tasks**, one per step: load data, remove invalid rows, construct the target, extract X and y, split train/test, fit the preprocessor, build the pipeline, train, evaluate and save the model. The trained pipeline is saved to `src/web_service/local_objects/model.pkl`.
+
+All commands below are run from the project root.
+
+1. **Point Prefect to a local server** (only needed once):
+   ```bash
+   uv run prefect config set PREFECT_API_URL=http://127.0.0.1:4200/api
+   ```
+
+2. **Start the Prefect server and UI** in a first terminal (it keeps running):
+   ```bash
+   uv run prefect server start
+   ```
+   Open the UI at http://127.0.0.1:4200. To reset the database: `uv run prefect server database reset`.
+
+3. **Run the training flow once** in a second terminal:
+   ```bash
+   uv run python -m src.modelling.main data/abalone.csv
+   ```
+   The run appears in the UI under **Runs**: click on it to see each task, its logs and the test metrics (RMSE, MAE, R²).
+
+4. **Deploy the weekly retraining** in the second terminal (it keeps running to serve the scheduled runs):
+   ```bash
+   uv run python -m src.modelling.deployment
+   ```
+   The `weekly-retraining` deployment appears in the UI under **Deployments**, scheduled every Monday at 00:00 (cron `0 0 * * 1`, set in `src/modelling/deployment.py`). To trigger a run now, click **Run** in the UI or use, from a third terminal:
+   ```bash
+   uv run prefect deployment run "Train model/weekly-retraining"
+   ```
+   Stopping the command (`Ctrl+C`) stops the scheduled runs; the deployment stays visible in the UI.
+
 ## 📋 What You'll Build
 
 By the end of this project, you'll have created:
 
-### 🤖 **Automated ML Pipeline** 
+### 🤖 **Automated ML Pipeline**
 - Training workflows using Prefect
 - Automatic model retraining on schedule
 - Reproducible model and data processing
@@ -67,7 +90,7 @@ By the end of this project, you'll have created:
 ### 📊 **Production-Ready Code**
 - Clean, well-documented code
 - Automated testing and formatting
-- Proper error handling 
+- Proper error handling
 
 ## 📝 How to Work on This Project
 
@@ -102,7 +125,7 @@ git push
 
 Then:
 1. 📖 Read the PR_i.md file carefully
-2. 💻 Complete all the TODOs in the code  
+2. 💻 Complete all the TODOs in the code
 3. 🔧 Test your changes
 4. 📤 Open **ONE** pull request to your main branch
 5. ✅ Merge the pull request
@@ -138,6 +161,18 @@ Then sync the environment and regenerate the dependency files:
 uv sync
 ```
 
+### MLflow Tracking
+
+- **Issue**: with MLflow 3.x (locked at 3.17.2), the file-based tracking store (`./mlruns`, the default) is in maintenance mode and raises an error, so the usual `mlflow ui --backend-store-uri mlruns` command fails.
+- **Resolution**: runs are stored in a local SQLite database, `mlflow.db` at the project root, and artifacts (models) go to the project-level `mlruns/` folder. The notebook sets both.
+- **View the runs** from the project root:
+
+```bash
+uv run mlflow ui --backend-store-uri sqlite:///mlflow.db
+```
+
+- `mlflow.db`, `mlruns/` and `data/` are git-ignored and must not be pushed.
+
 ### Code Quality
 - The pre-commit hooks will automatically format your code
 - Remove all TODOs and unused code before final submission
@@ -147,16 +182,16 @@ uv sync
 
 Your project will be evaluated on:
 
-### 🔍 **Code Quality** 
+### 🔍 **Code Quality**
 - Clean, readable code structure
-- Proper naming conventions  
+- Proper naming conventions
 - Good use of docstrings and type hints
 
 ### 🎨 **Code Formatting**
 - Consistent style (automated with pre-commit)
 - Professional presentation
 
-### ⚙️ **Functionality** 
+### ⚙️ **Functionality**
 - Code runs without errors
 - All requirements implemented correctly
 
@@ -177,10 +212,10 @@ When you're done, your repository should contain:
 
 ✅ **Automated Training Pipeline**
 - [ ] Prefect workflows for model training
-- [ ] Separate modules for training and inference  
+- [ ] Separate modules for training and inference
 - [ ] Reproducible model and encoder generation
 
-✅ **Automated Deployment**  
+✅ **Automated Deployment**
 - [ ] Prefect deployment for regular retraining
 
 ✅ **Production API**
