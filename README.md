@@ -42,7 +42,7 @@ This project includes:
 
 ### Training pipeline with Prefect
 
-The training code in `src/modelling` is a Prefect **flow** (`Train model`, in `main.py`) made of **tasks**, one per step: load data, remove invalid rows, construct the target, extract X and y, split train/test, fit the preprocessor, build the pipeline, train, evaluate and save the model. The trained pipeline is saved to `src/web_service/local_objects/model.pkl`.
+The training code in `src/modelling` is a Prefect **flow** (`Training pipeline`, in `main.py`) made of **tasks**, one per step: load data, remove invalid rows, construct the target, extract X and y, split train/test, build the preprocessor, build the pipeline, train (fits the preprocessor and the model together), evaluate and save the model. The trained pipeline is saved to `src/web_service/local_objects/model.pkl`.
 
 All commands below are run from the project root.
 
@@ -69,7 +69,7 @@ All commands below are run from the project root.
    ```
    The `weekly-retraining` deployment appears in the UI under **Deployments**, scheduled every Monday at 00:00 (cron `0 0 * * 1`, set in `src/modelling/deployment.py`). To trigger a run now, click **Run** in the UI or use, from a third terminal:
    ```bash
-   uv run prefect deployment run "Train model/weekly-retraining"
+   uv run prefect deployment run "Training pipeline/weekly-retraining"
    ```
    Stopping the command (`Ctrl+C`) stops the scheduled runs; the deployment stays visible in the UI.
 

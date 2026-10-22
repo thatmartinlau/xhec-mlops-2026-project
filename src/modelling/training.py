@@ -15,7 +15,7 @@ from sklearn.pipeline import Pipeline
 
 @task(name="Build pipeline")
 def build_pipeline(preprocessor: ColumnTransformer) -> Pipeline:
-    """Wrap the (fitted) preprocessor and a linear regression into one pipeline."""
+    """Wrap the (unfitted) preprocessor and a linear regression into one pipeline."""
     return Pipeline(
         steps=[
             ("preprocessor", preprocessor),
