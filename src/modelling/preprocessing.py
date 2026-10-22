@@ -1,8 +1,8 @@
-"""Clean the raw abalone data, build X/y, and transform the features.
+"""Clean the raw abalone data, build X/y, and build the feature preprocessor.
 
-The preprocessor is fitted on the training set only and packed into the
-model pipeline (see ``training.build_pipeline``), so it is pickled with the
-model and applied identically at prediction time.
+The preprocessor is packed into the model pipeline (see ``training.build_pipeline``)
+and fitted with it on the training set only, so it is pickled with the model and
+applied identically at prediction time.
 """
 
 from pathlib import Path
@@ -74,11 +74,12 @@ def split_train_test(
     return train_test_split(X, y, test_size=test_size, random_state=random_state)
 
 
-@task(name="Fit preprocessor")
-def fit_preprocessor(X_train: pd.DataFrame) -> ColumnTransformer:
-    """Fit the preprocessor on the training set.
+@task(name="Build preprocessor")
+def build_preprocessor(X_train: pd.DataFrame) -> ColumnTransformer:
+    """Build the (unfitted) preprocessor for the columns of the training set.
 
     It one-hot encodes the categorical features and standardizes the numerical ones.
+    It is fitted together with the model, in ``training.train_model``.
     """
     numerical_features = [
         col for col in X_train.columns if col not in CATEGORICAL_FEATURES
@@ -96,13 +97,4 @@ def fit_preprocessor(X_train: pd.DataFrame) -> ColumnTransformer:
     )
     # Output DataFrames with readable column names (e.g. `Sex_M`, `Length`)
     preprocessor.set_output(transform="pandas")
-    preprocessor.fit(X_train)
     return preprocessor
-
-
-@task(name="Transform features")
-def transform_features(
-    X: pd.DataFrame, preprocessor: ColumnTransformer
-) -> pd.DataFrame:
-    """Transform the features with the fitted preprocessor."""
-    return preprocessor.transform(X)

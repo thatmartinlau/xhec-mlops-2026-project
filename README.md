@@ -21,6 +21,7 @@ This project includes:
 - Notebook exploration (EDA and a first model tracked with MLflow)
 - A training pipeline orchestrated with Prefect (`src/modelling`)
 - A Prefect deployment that retrains the model every week
+- A FastAPI prediction API, packaged with the Prefect server in a Docker container
 
 
 ## 🚀 Quick Start
@@ -34,15 +35,14 @@ This project includes:
    source .venv/bin/activate # on Windows (Git Bash): source .venv/Scripts/activate
 
    # Install pre-commit hooks for code quality
-    uv pip install pre-commit
-    uv run pre-commit install
+   uv run pre-commit install
    ```
 
 2. **Download the data**: get `abalone.csv` from the [Kaggle page](https://www.kaggle.com/datasets/rodolfomendes/abalone-dataset) and save it as `data/abalone.csv` (the `data/` folder is git-ignored).
 
 ### Training pipeline with Prefect
 
-The training code in `src/modelling` is a Prefect **flow** (`Train model`, in `main.py`) made of **tasks**, one per step: load data, remove invalid rows, construct the target, extract X and y, split train/test, fit the preprocessor, build the pipeline, train, evaluate and save the model. The trained pipeline is saved to `src/web_service/local_objects/model.pkl`.
+The training code in `src/modelling` is a Prefect **flow** (`Training pipeline`, in `main.py`) made of **tasks**, one per step: load data, remove invalid rows, construct the target, extract X and y, split train/test, build the preprocessor, build the pipeline, train (fits the preprocessor and the model together), evaluate and save the model. The trained pipeline is saved to `src/web_service/local_objects/model.pkl`.
 
 All commands below are run from the project root.
 
@@ -69,96 +69,99 @@ All commands below are run from the project root.
    ```
    The `weekly-retraining` deployment appears in the UI under **Deployments**, scheduled every Monday at 00:00 (cron `0 0 * * 1`, set in `src/modelling/deployment.py`). To trigger a run now, click **Run** in the UI or use, from a third terminal:
    ```bash
-   uv run prefect deployment run "Train model/weekly-retraining"
+   uv run prefect deployment run "Training pipeline/weekly-retraining"
    ```
    Stopping the command (`Ctrl+C`) stops the scheduled runs; the deployment stays visible in the UI.
 
-## 📋 What You'll Build
 
-By the end of this project, you'll have created:
+### Prediction API
 
-### 🤖 **Automated ML Pipeline**
-- Training workflows using Prefect
-- Automatic model retraining on schedule
-- Reproducible model and data processing
+The API (`src/web_service`) loads the trained pipeline from `src/web_service/local_objects/model.pkl` and exposes:
 
-### 🌐 **Prediction API**
-- REST API for real-time predictions
-- Input validation with Pydantic
-- Docker containerization
+| Method | Route | Description |
+|---|---|---|
+| `GET` | `/` | Health check |
+| `POST` | `/predict` | Predicted age (in years) of one abalone |
 
-### 📊 **Production-Ready Code**
-- Clean, well-documented code
-- Automated testing and formatting
-- Proper error handling
+Inputs are validated with Pydantic: `sex` must be `M`, `F` or `I`, measurements must be positive, and no part can weigh more than the whole abalone (otherwise the API answers `422`). As in the dataset, measurements are **scaled**: millimetres and grams divided by 200 (a length of 91 mm is sent as `0.455`). The API reloads the model automatically when `model.pkl` is updated by a retraining run.
 
-## 📝 How to Work on This Project
+#### Run the API locally
 
-### The Branch-by-Branch Approach
-
-This project is organized into numbered branches, each representing a step in building your MLOps system. Think of it like a guided tutorial where each branch teaches you something new!
-
-**Here's how it works**:
-
-1. **Each branch = One pull request** with specific tasks
-2. **Follow the numbers** (branch_0, branch_1, etc.) in order
-3. **Read the PR instructions** (PR_0.md, PR_1.md, etc.) before starting
-4. **Complete all TODOs** in that branch's code
-5. **Create a pull request** when done
-6. **Merge and move to the next branch**
-
-### Step-by-Step Workflow
-
-For each numbered branch:
+Train a model first (see above), then:
 
 ```bash
-# Switch to the branch
-git checkout branch_number_i
-
-# Get latest changes (except for branch_0)
-git pull origin main
-# Note: A VIM window might open - just type ":wq" to close it
-
-# Push your branch
-git push
+uv run uvicorn src.web_service.main:app --port 8001
 ```
 
-Then:
-1. 📖 Read the PR_i.md file carefully
-2. 💻 Complete all the TODOs in the code
-3. 🔧 Test your changes
-4. 📤 Open **ONE** pull request to your main branch
-5. ✅ Merge the pull request
-6. 🔄 Move to the next branch
+The interactive documentation is at http://127.0.0.1:8001/docs.
 
-> **💡 Pro Tip**: Always integrate your previous work when starting a new branch (except branch_0)!
+#### Run everything with Docker
 
-### 🔍 Understanding Pull Requests
+The container starts the Prefect server, trains a first model, serves the weekly retraining deployment and starts the API (see `bin/run_services.sh`). From the project root, with the data in `data/abalone.csv`:
 
-Pull Requests (PRs) are how you propose and review changes before merging them into your main codebase. They're essential for team collaboration!
+```bash
+docker build -f Dockerfile.app -t abalone-api .
+docker run -p 0.0.0.0:8000:8001 -p 0.0.0.0:4200:4201 abalone-api
+```
 
-**Important**: When creating a PR, make sure you're merging into YOUR forked repository, not the original:
+- API documentation: http://localhost:8000/docs
+- Prefect UI (training runs and the `weekly-retraining` deployment): http://localhost:4200
 
-❌ **Wrong** (merging to original repo):
-![PR Wrong](assets/PR_wrong.png)
+To retrain on an updated dataset without rebuilding the image, mount the data folder: add `-v "$(pwd)/data:/app/data"` to `docker run`.
 
-✅ **Correct** (merging to your fork):
-![PR Right](assets/PR_right.png)
+#### Make a prediction
 
-## 💡 Development Tips
+```bash
+curl -X POST http://localhost:8000/predict \
+  -H "Content-Type: application/json" \
+  -d '{"sex": "M", "length": 0.455, "diameter": 0.365, "height": 0.095,
+       "whole_weight": 0.514, "shucked_weight": 0.2245,
+       "viscera_weight": 0.101, "shell_weight": 0.15}'
+```
+
+Response (`200`):
+
+```json
+{"predicted_age": 10.67}
+```
+
+Use port `8001` instead of `8000` when the API runs locally.
+
+## Project Structure
+
+```
+├── bin/run_services.sh        # Container entrypoint: Prefect server, training, deployment, API
+├── Dockerfile.app             # Docker image of the API and the Prefect server
+├── notebooks/                 # EDA and first model (tracked with MLflow)
+└── src/
+    ├── modelling/             # Prefect training flow
+    │   ├── main.py            # Flow: load, clean, split, train, evaluate, save
+    │   ├── deployment.py      # Weekly retraining deployment
+    │   ├── preprocessing.py   # Cleaning, target, train/test split, preprocessor
+    │   ├── training.py        # Pipeline, training and evaluation
+    │   ├── predicting.py      # Model loading and prediction
+    │   └── utils.py           # Pickle helpers
+    └── web_service/           # FastAPI app
+        ├── main.py            # Routes
+        ├── lib/models.py      # Pydantic request and response schemas
+        ├── lib/inference.py   # Model loading (reloaded on change) and prediction
+        └── local_objects/     # Trained model (model.pkl, git-ignored)
+```
+
+## Development Tips
 
 ### Managing Dependencies
 
-Use uv to manage dependencies. Install or update packages with:
+Dependencies are managed with uv: they are declared in `pyproject.toml` and pinned in `uv.lock`. They are split in two:
+
+- **Runtime dependencies** (`dependencies`): what the training flow and the API need (pandas, scikit-learn, Prefect, FastAPI...). Only these are installed in the Docker image (`uv sync --no-dev`).
+- **Development dependencies** (`dev` group): notebooks (Jupyter kernel, matplotlib, seaborn, MLflow) and code quality tools (pre-commit, ruff). `uv sync` installs them by default for local work and the CI.
+
+Add a package with:
 
 ```bash
-uv add <package>==<version>
-```
-
-Then sync the environment and regenerate the dependency files:
-
-```bash
-uv sync
+uv add <package>         # runtime dependency
+uv add --dev <package>   # development dependency
 ```
 
 ### MLflow Tracking
@@ -174,60 +177,6 @@ uv run mlflow ui --backend-store-uri sqlite:///mlflow.db
 - `mlflow.db`, `mlruns/` and `data/` are git-ignored and must not be pushed.
 
 ### Code Quality
-- The pre-commit hooks will automatically format your code
-- Remove all TODOs and unused code before final submission
-- Use clear variable names and add docstrings
 
-## 📊 Evaluation Criteria
-
-Your project will be evaluated on:
-
-### 🔍 **Code Quality**
-- Clean, readable code structure
-- Proper naming conventions
-- Good use of docstrings and type hints
-
-### 🎨 **Code Formatting**
-- Consistent style (automated with pre-commit)
-- Professional presentation
-
-### ⚙️ **Functionality**
-- Code runs without errors
-- All requirements implemented correctly
-
-### 📖 **Documentation & Reproducibility**
-- Clear README with setup instructions
-- Team member names and GitHub usernames
-- Step-by-step instructions to run everything
-
-### 🤝 **Collaboration**
-- Effective use of Pull Requests
-- Good teamwork and communication
-
----
-
-## 🎯 Final Deliverables Checklist
-
-When you're done, your repository should contain:
-
-✅ **Automated Training Pipeline**
-- [ ] Prefect workflows for model training
-- [ ] Separate modules for training and inference
-- [ ] Reproducible model and encoder generation
-
-✅ **Automated Deployment**
-- [ ] Prefect deployment for regular retraining
-
-✅ **Production API**
-- [ ] Working REST API for predictions
-- [ ] Pydantic input validation
-- [ ] Docker containerization
-
-✅ **Professional Documentation**
-- [ ] Updated README with team info
-- [ ] Clear setup and run instructions
-- [ ] All TODOs removed from code
-
----
-
-**Ready to start? Head to branch_0 and read PR_0.md for your first task! 🚀**
+- The pre-commit hooks (ruff lint and format, nbstripout, file checks) run on every commit, and on every push and pull request in the CI.
+- Run them on all files with `uv run pre-commit run --all-files`.

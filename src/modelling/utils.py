@@ -4,10 +4,7 @@ import pickle
 from pathlib import Path
 from typing import Any
 
-from prefect import task
 
-
-@task(name="Save model")
 def pickle_object(obj: Any, path: str | Path) -> None:
     """Serialize ``obj`` to ``path`` using pickle.
 
