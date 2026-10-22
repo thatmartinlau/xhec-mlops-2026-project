@@ -1,0 +1,11 @@
+.git
+.venv
+.github
+.ruff_cache
+**/__pycache__
+*.egg-info
+notebooks
+assets
+mlruns
+mlflow.db
+src/web_service/local_objects/*.pkl

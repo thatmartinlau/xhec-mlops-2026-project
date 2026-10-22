@@ -1,21 +1,27 @@
 """Inference logic for the prediction API."""
 
-from functools import lru_cache
+from pathlib import Path
 from typing import Any
 
-from src.modelling.predicting import load_model, predict_single
+from src.modelling.predicting import DEFAULT_MODEL_PATH, load_model, predict_single
 
 from .models import AbaloneFeatures
 
+# Last loaded model and the modification time of its file
+_model_cache: dict[str, Any] = {"mtime": None, "model": None}
 
-@lru_cache(maxsize=1)
-def get_model() -> Any:
+
+def get_model(path: Path = DEFAULT_MODEL_PATH) -> Any:
     """Load and cache the pickled model.
 
-    Cached per process: the first call reads ``model.pkl`` from
-    ``src/web_service/local_objects/``, subsequent calls reuse the same object.
+    The model is reloaded only when ``model.pkl`` changes on disk, e.g. after
+    the scheduled retraining flow has saved a new model.
     """
-    return load_model()
+    mtime = path.stat().st_mtime
+    if _model_cache["mtime"] != mtime:
+        _model_cache["model"] = load_model(path)
+        _model_cache["mtime"] = mtime
+    return _model_cache["model"]
 
 
 def predict_abalone(features: AbaloneFeatures) -> float:

@@ -2,7 +2,7 @@
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class AbaloneFeatures(BaseModel):
@@ -10,7 +10,27 @@ class AbaloneFeatures(BaseModel):
 
     Field names use ``snake_case`` for a clean JSON API; ``to_model_row``
     maps them to the column names the trained pipeline expects.
+    As in the training data, continuous values are scaled: millimetres and grams
+    divided by 200 (e.g. a length of 91 mm is sent as 0.455).
     """
+
+    # Example request body shown in the interactive docs (/docs)
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "sex": "M",
+                    "length": 0.455,
+                    "diameter": 0.365,
+                    "height": 0.095,
+                    "whole_weight": 0.514,
+                    "shucked_weight": 0.2245,
+                    "viscera_weight": 0.101,
+                    "shell_weight": 0.15,
+                }
+            ]
+        }
+    )
 
     sex: Literal["M", "F", "I"] = Field(
         ..., description="M = male, F = female, I = infant"
